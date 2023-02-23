@@ -1,0 +1,1402 @@
+{
+	"info": {
+		"_postman_id": "8cec6c01-bed5-4556-afd0-641fbbaff483",
+		"name": "_SessionDialogOnboardingE2EPCA",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Login",
+			"item": [
+				{
+					"name": "Register",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Registration return messageId and sessionId\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.register).not.null;",
+									"    pm.expect(jsonData.data.register.messageId).not.null;",
+									"     pm.expect(jsonData.data.register.sessionId).not.null;",
+									"",
+									"    pm.environment.set(\"auth.messageId\", jsonData.data.register.messageId);",
+									"    pm.environment.set(\"auth.sessionId\", jsonData.data.register.sessionId);",
+									"   ",
+									"});",
+									"",
+									"pm.test(\"Email and RandomName generated\");",
+									""
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-api-key",
+								"value": "{{x-api-key}}",
+								"type": "default"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation MagicLink($var1: RegistrationInput!) {\n  register(registrationInput: $var1) {\n    messageId\n    sessionId\n  }\n}",
+								"variables": "{\n  \"var1\": {\n    \"email\": \"{{$randomUserName}}@{{env}}.sirius.tlzproject.com\",\n    \"firstName\": \"{{$randomFirstName}}\",\n    \"attribution\" : {\n      \"channelKey\" : \"{{app_channel_key}}\",\n      \"productKey\": \"{{app_product_key}}\"\n    }\n  }\n}"
+							}
+						},
+						"url": {
+							"raw": "{{session_dialog_host}}",
+							"host": [
+								"{{session_dialog_host}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get token from magicLink email (not in PROD)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Gets challengeToken from messageId\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).not.null;",
+									"    pm.expect(jsonData.data.emailByMessageId.messageId).equal(pm.environment.get(\"auth.messageId\"));",
+									"    const $ = cheerio.load(jsonData.data.emailByMessageId.html);",
+									"    console.log($(\"a#magicLink\").attr('href'));",
+									"    const magicLink = $(\"a#magicLink\").attr('href');",
+									"",
+									"    var tokenKey = \"?token=\";",
+									"    var tokenIndex = magicLink.lastIndexOf(tokenKey);",
+									"",
+									"    pm.expect(tokenIndex).greaterThan(-1, 'Token not found in magic link');",
+									"",
+									"    var token = magicLink.substring(tokenIndex + tokenKey.length, magicLink.length);",
+									"",
+									"    pm.environment.set(\"auth.challenge_token\", token);",
+									"    console.log(\"Token:\", token);",
+									"   ",
+									"});",
+									"",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-api-key",
+								"value": "sandbox-apikey-secret",
+								"type": "default"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query Email($messageId: String!) {\n    emailByMessageId( messageId: $messageId) {\n        messageId\n        html\n        subject\n        from {\n            address\n            name\n        }\n        to {\n            address\n            name\n        }\n    }\n}\n",
+								"variables": "{\n    \"messageId\" : \"{{auth.messageId}}\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{session_dialog_host}}",
+							"host": [
+								"{{session_dialog_host}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "CreateSession",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Create Session returns tokens\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.createSession).not.null;",
+									"    pm.expect(jsonData.data.createSession.access_token).not.null;",
+									"    pm.expect(jsonData.data.createSession.refresh_token).not.null;",
+									"    pm.environment.set(\"auth.access_token\", jsonData.data.createSession.access_token);",
+									"    pm.environment.set(\"auth.refresh_token\", jsonData.data.createSession.refresh_token);",
+									"   ",
+									"});",
+									" "
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-api-key",
+								"value": "{{x-api-key}}",
+								"type": "default"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation MagicLink($createSessionInput: CreateSessionInput!) {\n  createSession(createSessionInput: $createSessionInput) {\n    access_token\n    expires_in\n    refresh_token\n    scope\n  }\n}",
+								"variables": "{\n    \"createSessionInput\": {\n        \"sessionId\": \"{{auth.sessionId}}\",\n        \"challengeResponseToken\":\"{{auth.challenge_token}}\"\n    }\n}"
+							}
+						},
+						"url": {
+							"raw": "{{session_dialog_host}}",
+							"host": [
+								"{{session_dialog_host}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Session",
+			"item": [
+				{
+					"name": "session (query)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									" ",
+									" var jsonData = pm.response.json();",
+									" pm.test(\"Session Returns applicant in session Details\", function () {",
+									"     pm.expect(jsonData.data.session.applicant).not.null;",
+									"     pm.expect(jsonData.data.session.applicant.person.givenName).not.null;",
+									"     pm.expect(jsonData.data.session.applicant.contactPoint.electronicAddresses[0].emailAddress).not.null;",
+									"     pm.environment.set(\"onboardingId\", jsonData.data.session.application.onboardingId);",
+									"     pm.environment.set(\"applicantId\", jsonData.data.session.applicant.applicantId);",
+									" });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth.access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-api-key",
+								"value": "{{x-api-key}}",
+								"type": "default"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query Session {\n    session {\n      applicant {\n        applicantId\n        person {\n          personId\n          personName {\n            namePrefixDescription\n            givenName\n            middleName\n            lastName\n            birthName\n            aliases\n          }\n          genderDescription\n          birthDate\n          placeOfBirth {\n            country {\n              code\n            }\n          }\n          countryOfResidence {\n            code\n          }\n          firstNationality {\n            code\n          }\n          secondNationality {\n            code\n          }\n          thirdNationality {\n            code\n          }\n          foreignTaxes {\n            country {\n              code\n            }\n            document {\n              documentNumber\n            }\n          }\n          occupationDescription\n          employmentInformation {\n            statusDescription\n            employer {\n              name\n              typeDescription\n              economicActivity {\n                categoryDescription\n              }\n              controlStakeIndicator\n            }\n            period {\n              startDate\n            }\n          }\n          residentialStatusDescription\n          economicData {\n            incomes {\n              typeDescription\n              otherIncomeDescription\n              amount {\n                amount\n              }\n              country {\n                code\n              }\n            }\n            totalExpenses {\n              amount {\n                amount\n              }\n            }\n            numberOfDependents\n          }\n          consents {\n            treatmentDescription\n          }\n        }\n        contactPoint {\n          phoneAddresses {\n            mobileNumber\n            internationalCode\n          }\n          electronicAddresses {\n            emailAddress\n          }\n          postalAddresses {\n            streetBuildingIdentification\n            secondaryStreetBuildingIdentification\n            buildingName\n            premise\n            alternativePremise\n            streetName\n            secondaryStreetName\n            districtName\n            secondaryDistrictName\n            townName\n            postCodeIdentification\n            country {\n              code\n            }\n            province {\n              name\n            }\n            line1\n            line2\n            city {\n              name\n            }\n            state {\n              name\n            }\n            zipCode\n            isPrimary\n            formatDescription\n            validityPeriod {\n              startDate\n            }\n          }\n        }\n        statusInfo {\n          statusDescription\n        }\n      }\n      application {\n        onboardingId\n        account {\n          expectedUsage {\n            purposeCode\n            purposeDescription\n            monthlyPayIn\n            monthlyOutgoings\n            monthlyDeposit\n            expectedInitialDeposits {\n              source\n              amount {\n                amount\n              }\n              country {\n                code\n              }\n            }\n          }\n          overdraft {\n            amount {\n              amount\n            }\n          }\n        }\n        userTermsAndConditions {\n          acceptanceDate\n          isAccepted\n        }\n        product {\n          productCode\n          productFamilyCode\n          referenceStandard {\n            referenceStandardId\n          }\n          productDescription\n        }\n        statusInfo {\n          statusDescription\n        }\n      }\n      idvSession {\n        party {\n          partyId\n          consents {\n            isConsentRightExercised\n          }\n        }\n      }\n    }\n  }",
+								"variables": ""
+							}
+						},
+						"url": {
+							"raw": "{{session_dialog_host}}",
+							"host": [
+								"{{session_dialog_host}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Product",
+			"item": [
+				{
+					"name": "updateProduct (mutation)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Set Product returns product details\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.updateProduct).not.null;",
+									"    pm.expect(jsonData.data.updateProduct.product.productFamilyCode).not.null;",
+									"    pm.expect(jsonData.data.updateProduct.product.productCode).not.null;",
+									"    pm.expect(jsonData.data.updateProduct.product.productDescription).not.null;",
+									"    pm.expect(jsonData.data.updateProduct.product.referenceStandard.referenceStandardId).not.null;",
+									"",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth.access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-api-key",
+								"value": "{{x-api-key}}",
+								"type": "default"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation ($var1: String!) {\n    updateProduct(productCode: $var1) {\n          onboardingId\n          email\n          name\n          processTypeCode\n          application\n          application\n          statusInfo {\n              statusDescription\n          }\n          product {\n              productFamilyCode\n              productCode\n              productDescription\n              referenceStandard {\n                  referenceStandardId\n              }\n          }\n      }\n}",
+								"variables": "{\n    \"var1\": \"{{productCode}}\"\n}"
+							}
+						},
+						"url": {
+							"raw": "{{session_dialog_host}}",
+							"host": [
+								"{{session_dialog_host}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "About You",
+			"item": [
+				{
+					"name": "UpdateApplicant",
+					"item": [
+						{
+							"name": "UpdateName/Aliases",
+							"item": [
+								{
+									"name": "UpdateNames",
+									"event": [
+										{
+											"listen": "prerequest",
+											"script": {
+												"exec": [
+													""
+												],
+												"type": "text/javascript"
+											}
+										},
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"pm.test(\"Update Name returns person details\", function () {",
+													"    var jsonData = pm.response.json();",
+													"    pm.expect(jsonData.data.updateApplicant).not.null;",
+													"    pm.expect(jsonData.data.updateApplicant.person).not.null;",
+													"    pm.expect(jsonData.data.updateApplicant.person.personName).not.null;",
+													"    pm.expect(jsonData.data.updateApplicant.person.personName.namePrefixDescription).equal(pm.variables.get(\"Salutation\"));   ",
+													"});"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"request": {
+										"auth": {
+											"type": "bearer",
+											"bearer": [
+												{
+													"key": "token",
+													"value": "{{auth.access_token}}",
+													"type": "string"
+												}
+											]
+										},
+										"method": "POST",
+										"header": [
+											{
+												"key": "x-api-key",
+												"value": "{{x-api-key}}",
+												"type": "default"
+											}
+										],
+										"body": {
+											"mode": "graphql",
+											"graphql": {
+												"query": "mutation UpdateApplicant($applicant: UpdateApplicantInput!) {\n    updateApplicant(updateApplicantInput: $applicant) {\n      person {\n        personName {\n          namePrefixDescription\n          givenName\n          middleName\n          lastName\n        }\n      }\n    }\n  }",
+												"variables": "{\n  \"applicant\": {\n        \"person\": {\n            \"personName\": {\n                \"namePrefixDescription\": \"{{Salutation}}\",\n                \"lastName\": \"{{$randomLastName}}\"\n                }\n            }\n        }\n\n}"
+											}
+										},
+										"url": {
+											"raw": "{{session_dialog_host}}",
+											"host": [
+												"{{session_dialog_host}}"
+											]
+										}
+									},
+									"response": []
+								}
+							]
+						},
+						{
+							"name": "UpdateDOB/Gender",
+							"item": [
+								{
+									"name": "UpdateDOBGender",
+									"event": [
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"pm.test(\"Update Gender returns person details\", function () {",
+													"    var jsonData = pm.response.json();",
+													"    pm.expect(jsonData.data.updateApplicant).not.null;",
+													"    pm.expect(jsonData.data.updateApplicant.person).not.null;",
+													"    pm.expect(jsonData.data.updateApplicant.person.genderDescription).not.null;",
+													"});",
+													"",
+													"pm.test(\"Update BirthDate returns person details\", function () {",
+													"    var jsonData = pm.response.json();",
+													"    pm.expect(jsonData.data.updateApplicant).not.null;",
+													"    pm.expect(jsonData.data.updateApplicant.person).not.null;",
+													"    pm.expect(jsonData.data.updateApplicant.person.birthDate).not.null;",
+													"});"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"request": {
+										"auth": {
+											"type": "bearer",
+											"bearer": [
+												{
+													"key": "token",
+													"value": "{{auth.access_token}}",
+													"type": "string"
+												}
+											]
+										},
+										"method": "POST",
+										"header": [
+											{
+												"key": "x-api-key",
+												"value": "{{x-api-key}}",
+												"type": "default"
+											}
+										],
+										"body": {
+											"mode": "graphql",
+											"graphql": {
+												"query": "mutation UpdateApplicant($applicant: UpdateApplicantInput!) {\n    updateApplicant(updateApplicantInput: $applicant) {\n      person {\n        genderDescription\n        birthDate\n      }\n    }\n  }",
+												"variables": "{\n    \"applicant\": {\n            \"person\": {\n                \"genderDescription\": \"{{genderDescription}}\",\n                \"birthDate\": \"{{birthDate}}\"\n            }\n        }\n\n\n}"
+											}
+										},
+										"url": {
+											"raw": "{{session_dialog_host}}",
+											"host": [
+												"{{session_dialog_host}}"
+											]
+										}
+									},
+									"response": []
+								}
+							]
+						},
+						{
+							"name": "UpdateNationality-Contact",
+							"item": [
+								{
+									"name": "UpdateApplicantNationality",
+									"event": [
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"pm.test(\"Update Applicant Nationality returns person details\", function () {",
+													"    var jsonData = pm.response.json();",
+													"    pm.expect(jsonData.data.updateApplicant).not.null;",
+													"    pm.expect(jsonData.data.updateApplicant.person).not.null;",
+													"});"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"request": {
+										"auth": {
+											"type": "bearer",
+											"bearer": [
+												{
+													"key": "token",
+													"value": "{{auth.access_token}}",
+													"type": "string"
+												}
+											]
+										},
+										"method": "POST",
+										"header": [
+											{
+												"key": "x-api-key",
+												"value": "{{x-api-key}}",
+												"type": "default"
+											}
+										],
+										"body": {
+											"mode": "graphql",
+											"graphql": {
+												"query": "mutation UpdateApplicant($applicant: UpdateApplicantInput!) {\n    updateApplicant(updateApplicantInput: $applicant) {\n      person {\n        firstNationality {\n          code\n        }\n        secondNationality {\n          code\n        }\n        thirdNationality {\n          code\n        }\n        countryOfResidence {\n          code\n        }\n        placeOfBirth {\n          country {\n            code\n          }\n        }\n        foreignTaxes {\n          country {\n            code\n          }\n          document {\n            documentNumber\n          }\n        }\n      }\n    }\n  }",
+												"variables": "{\n    \"applicant\": {\n            \"person\": {\n                \"countryOfResidence\": {\n                    \"code\": \"{{countryOfResidence}}\"\n                },\n                \"firstNationality\": {\n                    \"code\": \"{{firstNationality}}\"\n                },\n                \"placeOfBirth\": {\n                    \"country\": {\n                        \"code\": \"{{placeOfBirth}}\"\n                    }\n                },\n                \"foreignTaxes\": [\n                    {\n                        \"country\": {\n                            \"code\": \"{{foreignTaxes}}\"\n                        },\n                        \"document\": {\n                            \"documentNumber\": \"{{documentNumber}}\"\n                        }\n                    }\n                ]\n            }\n        }\n}"
+											}
+										},
+										"url": {
+											"raw": "{{session_dialog_host}}",
+											"host": [
+												"{{session_dialog_host}}"
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "UpdateApplicantContactMobile",
+									"event": [
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"pm.test(\"Update Contact Details Telephone returns contactPoint\", function () {",
+													"    var jsonData = pm.response.json();",
+													"    pm.expect(jsonData.data.updateApplicant).not.null;",
+													"    pm.expect(jsonData.data.updateApplicant.contactPoint).not.null;",
+													"    pm.expect(jsonData.data.updateApplicant.contactPoint.phoneAddresses[0]).not.null;",
+													"});"
+												],
+												"type": "text/javascript"
+											}
+										},
+										{
+											"listen": "prerequest",
+											"script": {
+												"exec": [
+													"// generate random mobile numbers",
+													" let mobileNumber = \"07\"; ",
+													"function generateMobileNumber() {",
+													"  for (let i = 0; i < 9; i++) {",
+													"    mobileNumber += Math.floor(Math.random() * 10).toString();",
+													"  }",
+													"  console.log(mobileNumber);",
+													"  return(mobileNumber)",
+													"} ",
+													"generateMobileNumber();",
+													"postman.setEnvironmentVariable('mobileNumber',mobileNumber);"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"request": {
+										"auth": {
+											"type": "bearer",
+											"bearer": [
+												{
+													"key": "token",
+													"value": "{{auth.access_token}}",
+													"type": "string"
+												}
+											]
+										},
+										"method": "POST",
+										"header": [
+											{
+												"key": "x-api-key",
+												"value": "{{x-api-key}}",
+												"type": "default"
+											}
+										],
+										"body": {
+											"mode": "graphql",
+											"graphql": {
+												"query": "mutation UpdateApplicant($applicant: UpdateApplicantInput!) {\n    updateApplicant(updateApplicantInput: $applicant) {\n      contactPoint {\n        phoneAddresses {\n          mobileNumber\n          internationalCode\n          primaryIndicator\n        }\n        electronicAddresses{\n            emailAddress\n        }\n      }\n    }\n  }",
+												"variables": "{\n  \"applicant\": {\n    \"contactPoint\": {\n      \"phoneAddresses\": [\n        {\n          \"mobileNumber\": \"{{mobileNumber}}\",\n          \"internationalCode\": \"44\"\n        }\n      ]\n    }\n  }\n}"
+											}
+										},
+										"url": {
+											"raw": "{{session_dialog_host}}",
+											"host": [
+												"{{session_dialog_host}}"
+											]
+										}
+									},
+									"response": []
+								}
+							]
+						},
+						{
+							"name": "UpdateAddressManual/RoyalMail",
+							"item": [
+								{
+									"name": "UpdateApplicantContactAddressManual",
+									"event": [
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"pm.test(\"Manual Address is created\", function () {",
+													"    var jsonData = pm.response.json();",
+													"    pm.expect(jsonData.data.updateApplicant).not.null;",
+													"    pm.expect(jsonData.data.updateApplicant.contactPoint).not.null;",
+													"   ",
+													"});"
+												],
+												"type": "text/javascript"
+											}
+										},
+										{
+											"listen": "prerequest",
+											"script": {
+												"exec": [
+													"//const moment = require(\"moment\");",
+													"//var startDate = moment('1997-01-01').add(\"days\", _.random(1,30));",
+													"//pm.variables.set(\"startDate\", startDate.format(\"YYYY-MM-DD\"));"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"request": {
+										"auth": {
+											"type": "bearer",
+											"bearer": [
+												{
+													"key": "token",
+													"value": "{{auth.access_token}}",
+													"type": "string"
+												}
+											]
+										},
+										"method": "POST",
+										"header": [
+											{
+												"key": "x-api-key",
+												"value": "{{x-api-key}}",
+												"type": "default"
+											}
+										],
+										"body": {
+											"mode": "graphql",
+											"graphql": {
+												"query": "mutation UpdateApplicant($applicant: UpdateApplicantInput!) {\n  updateApplicant(updateApplicantInput: $applicant) {\n    contactPoint {\n      postalAddresses {\n        addressId\n        secondaryStreetBuildingIdentification\n        buildingName\n        premise\n        alternativePremise\n        streetName\n        districtName\n        townName\n        postCodeIdentification\n        country {\n          code\n        }\n        isPrimary\n        formatDescription\n        validityPeriod {\n          startDate\n        } \n      }  \n    }\n  }\n}",
+												"variables": "{\n  \"applicant\": {\n    \"contactPoint\": {\n        \"postalAddresses\": {\n        \"validityPeriod\": {\n            \"startDate\": \"{{startDate}}\"\n        },\n        \"formatDescription\": \"{{formatDescription}}\",\n        \"premise\": \"{{premise}}\",\n        \"alternativePremise\": \"{{alternatePremise}}\",\n        \"streetName\": \"{{streetName}}\",\n        \"townName\": \"{{townName}}\",\n        \"postCodeIdentification\": \"{{postCodeIdentification}}\",\n        \"country\": {\n            \"code\": \"{{country}}\"\n        }\n    }\n    }\n  }\n}"
+											}
+										},
+										"url": {
+											"raw": "{{session_dialog_host}}",
+											"host": [
+												"{{session_dialog_host}}"
+											]
+										}
+									},
+									"response": []
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "IDV",
+			"item": [
+				{
+					"name": "Consent IDV",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Update IDV Consents to true\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.updateIdvSession).not.null;",
+									"    pm.expect(jsonData.data.updateIdvSession.party).not.null;",
+									"    pm.expect(jsonData.data.updateIdvSession.party.consents).not.null;",
+									"    pm.expect(jsonData.data.updateIdvSession.party.consents[0].isConsentRightExercised).equal(true);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth.access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-api-key",
+								"value": "{{x-api-key}}",
+								"type": "default"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation UpdateIdvSession($idvSession: UpdateIdvSessionInput!) {\n    updateIdvSession(updateIdvSessionInput: $idvSession) {\n      party {\n        consents {\n          isConsentRightExercised\n        }\n      }\n    }\n  }",
+								"variables": "{\n    \"idvSession\": {\n        \"party\": {\n            \"consents\": [\n                {\n                    \"isConsentRightExercised\": true\n                }\n            ]\n        }\n    }\n}"
+							}
+						},
+						"url": {
+							"raw": "{{session_dialog_host}}",
+							"host": [
+								"{{session_dialog_host}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Applicant Authorise",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Applicant Authorise returns referenceLink\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.applicantAuthorise).not.null;",
+									"    pm.expect(jsonData.data.applicantAuthorise.idvSession).not.null;",
+									"    pm.expect(jsonData.data.applicantAuthorise.idvSession.idvCheck).not.null;",
+									"    pm.expect(jsonData.data.applicantAuthorise.idvSession.idvCheck.verificationFile).not.null;",
+									"    pm.expect(jsonData.data.applicantAuthorise.idvSession.idvCheck.verificationFile.file).not.null;",
+									"    pm.expect(jsonData.data.applicantAuthorise.idvSession.idvCheck.verificationFile.file.referenceLink).not.null;",
+									"",
+									"     pm.environment.set(\"auth.referenceLink\", jsonData.data.applicantAuthorise.idvSession.idvCheck.verificationFile.file.referenceLink);",
+									"",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth.access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-api-key",
+								"value": "{{x-api-key}}",
+								"type": "default"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation ApplicantAuthorise($authoriseInput: ApplicantAuthoriseInput) {\n    applicantAuthorise(applicantAuthoriseInput: $authoriseInput) {\n      applicant {\n        applicantId\n        statusInfo {\n          statusDescription\n        }\n      }\n      idvSession {\n        idvSessionId\n        statusInfo {\n          statusDescription\n        }\n        idvCheck {\n          idvCheckId\n          statusInfo {\n            statusDescription\n          }\n          verificationFile {\n            file {\n              referenceLink\n            }\n          }\n        }\n      }\n    }\n  }",
+								"variables": "{\n}"
+							}
+						},
+						"url": {
+							"raw": "{{session_dialog_host}}",
+							"host": [
+								"{{session_dialog_host}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Redirect to Authorize from FE",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Check Status', () => {",
+									"    if (pm.response.code === 302) {",
+									"        console.log(\"It's 302\")",
+									"        var data = postman.getResponseHeader('Location');",
+									"        pm.environment.set(\"flowId\", data.split(\"?flowId=\")[1]);",
+									"    }",
+									"})"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-XSRF-Header",
+								"value": "TEST",
+								"type": "default"
+							}
+						],
+						"url": {
+							"raw": "{{auth.referenceLink}}",
+							"host": [
+								"{{auth.referenceLink}}"
+							],
+							"query": [
+								{
+									"key": "claims",
+									"value": "%7B%0A%20%20%22id_token%22%3A%20%7B%0A%20%20%20%20%22sub%22%3A%20%7B%0A%20%20%20%20%20%20%22essential%22%3A%20true%0A%20%20%20%20%7D%2C%0A%20%20%20%20%22given_name%22%3A%20%7B%0A%20%20%20%20%20%20%22essential%22%3A%20true%0A%20%20%20%20%7D%2C%0A%20%20%20%20%22family_name%22%3A%20%7B%0A%20%20%20%20%20%20%22essential%22%3A%20true%0A%20%20%20%20%7D%2C%0A%20%20%20%20%22gender%22%3A%20%7B%0A%20%20%20%20%20%20%22essential%22%3A%20true%0A%20%20%20%20%7D%2C%0A%20%20%20%20%22birthdate%22%3A%20%7B%0A%20%20%20%20%20%20%22essential%22%3A%20true%0A%20%20%20%20%7D%2C%0A%20%20%20%20%22passport%22%3A%20%7B%0A%20%20%20%20%20%20%22document_number%22%3A%20%7B%0A%20%20%20%20%20%20%20%20%22essential%22%3A%20true%0A%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%22country_code%22%3A%20%7B%0A%20%20%20%20%20%20%20%20%22essential%22%3A%20true%2C%0A%20%20%20%20%20%20%20%20%22value%22%3A%20%22GBR%22%0A%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%22country%22%3A%20%7B%0A%20%20%20%20%20%20%20%20%22essential%22%3A%20true%0A%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%22date_of_expiry%22%3A%20%7B%0A%20%20%20%20%20%20%20%20%22essential%22%3A%20true%0A%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%22document_reference%22%3A%20%7B%0A%20%20%20%20%20%20%20%20%22essential%22%3A%20true%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0A",
+									"disabled": true
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Internal Auth: Action identifyMobileApplication with uid",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-XSRF-Header",
+								"value": "PingFederate"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"appType\": \"ios\",\n    \"appVersion\": \"0.0.2\",\n    \"deviceModel\": \"iPhone8-1\",\n    \"deviceOS\": \"12.2\",\n    \"deviceFootprint\": \"{{deviceFootprint}}\",\n    \"deviceRegKeyFlag\": true,\n    \"biometricChangeFlag\": false,\n    \"biometricLogonPrefFlag\": true,\n    \"biometricAuthPrefFlag\": true,\n    \"deviceAuthenticator\": \"{{l2Authenticator}}\",\n    \"biometricAuthenticator\": \"{{l1Authenticator}}\",\n    \"trusteerSessionId\": \"0f1b2259-458f-4865-9307-13d4829d58a2\",\n    \"uid\": \"{{uid}}\"\n}"
+						},
+						"url": {
+							"raw": "{{PF_PRIVATE_HOST}}/pf-ws/authn/flows/{{flowId}}?action=identifyMobileApplication",
+							"host": [
+								"{{PF_PRIVATE_HOST}}"
+							],
+							"path": [
+								"pf-ws",
+								"authn",
+								"flows",
+								"{{flowId}}"
+							],
+							"query": [
+								{
+									"key": "action",
+									"value": "identifyMobileApplication"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Internal Auth: Complete and Redirect to Callback",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Check Status', () => {",
+									"    if (pm.response.code === 302) {",
+									"        console.log(\"It's 302\")",
+									"        var data = postman.getResponseHeader('Location');",
+									"        pm.environment.set(\"authorizationCode\", data.split(\"?code=\")[1].split(\"&\")[0]);",
+									"        pm.environment.set(\"state\", data.split(\"?state=\")[1]);",
+									"        console.log(\"State:\", data.split(\"&state=\")[1]);",
+									"        pm.test('Check state', () => {",
+									"            //pm.expect(data.split(\"&state=\")[1]).to.equal(pm.environment.get(\"state\"));",
+									"             pm.environment.set(\"state\", data.split(\"&state=\")[1]);",
+									"        })",
+									"    }",
+									"})",
+									"",
+									"",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{PF_PRIVATE_HOST}}/as/{{flowId}}/resume/as/authorization.ping",
+							"host": [
+								"{{PF_PRIVATE_HOST}}"
+							],
+							"path": [
+								"as",
+								"{{flowId}}",
+								"resume",
+								"as",
+								"authorization.ping"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Applicant Authorise with Result",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Applicant Authorise returns referenceLink\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.applicantAuthorise).not.null;",
+									"    pm.expect(jsonData.data.applicantAuthorise.idvSession).not.null;",
+									"    pm.expect(jsonData.data.applicantAuthorise.idvSession.idvCheck).not.null;",
+									"    pm.expect(jsonData.data.applicantAuthorise.idvSession.idvCheck.verificationFile).not.null;",
+									"    pm.expect(jsonData.data.applicantAuthorise.idvSession.idvCheck.verificationFile.file).not.null;",
+									"    pm.expect(jsonData.data.applicantAuthorise.idvSession.idvCheck.verificationFile.file.referenceLink).not.null;",
+									"",
+									"     pm.environment.set(\"auth.referenceLink\", jsonData.data.applicantAuthorise.idvSession.idvCheck.verificationFile.file.referenceLink);",
+									"",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth.access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-api-key",
+								"value": "{{x-api-key}}",
+								"type": "default"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "mutation ApplicantAuthorise($authoriseInput: ApplicantAuthoriseInput) {\n    applicantAuthorise(applicantAuthoriseInput: $authoriseInput) {\n      applicant {\n        applicantId\n        statusInfo {\n          statusDescription\n        }\n      }\n      idvSession {\n        idvSessionId\n        statusInfo {\n          statusDescription\n        }\n        idvCheck {\n          idvCheckId\n          statusInfo {\n            statusDescription\n          }\n          verificationFile {\n            verifications {\n                verificationResult {\n                    operationData {\n                        data\n                    }\n                }\n            }\n          }\n        }\n      }\n    }\n  }",
+								"variables": "{\n    \"authoriseInput\": {\n        \"code\": \"{{authorizationCode}}\",\n        \"state\": \"{{state}}\"\n    }\n}"
+							}
+						},
+						"url": {
+							"raw": "{{session_dialog_host}}",
+							"host": [
+								"{{session_dialog_host}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Applicant Status",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Check Applicant Status is now authorised\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.session).not.null;",
+									"    pm.expect(jsonData.data.session.applicant).not.null;",
+									"    pm.expect(jsonData.data.session.applicant.statusInfo).not.null;",
+									"    //pm.expect(jsonData.data.session.applicant.statusInfo.statusDescription).equals(\"PARTY_AUTHORISED\");",
+									"",
+									"});",
+									"",
+									"pm.test(\"Check IDVSession Status is approved\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.session).not.null;",
+									"    pm.expect(jsonData.data.session.idvSession).not.null;",
+									"    pm.expect(jsonData.data.session.idvSession.statusInfo).not.null;",
+									"   // pm.expect(jsonData.data.session.idvSession.statusInfo.statusDescription).equals(\"APPROVED\");",
+									"",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth.access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-api-key",
+								"value": "{{x-api-key}}",
+								"type": "default"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "query ApplicantStatus {\n    session {\n      applicant {\n        applicantId\n        statusInfo {\n          statusDescription\n        }\n      }\n      \n      idvSession {\n        statusInfo {\n            statusCode\n            statusDescription\n        }\n      }\n    }\n\n  }\n",
+								"variables": "{\n}"
+							}
+						},
+						"url": {
+							"raw": "{{session_dialog_host}}",
+							"host": [
+								"{{session_dialog_host}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Employment",
+			"item": [
+				{
+					"name": "UpdateEMP-EconomicData",
+					"item": [
+						{
+							"name": "Occupations Finder",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Industry Finder returns data\", function () {",
+											"    var jsonData = pm.response.json();",
+											"    //pm.expect(jsonData.data.updateApplicant.person).not.null;",
+											"    pm.expect(jsonData.data.findOccupations[0]).not.null;",
+											"",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{auth.access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "x-api-key",
+										"value": "{{x-api-key}}",
+										"type": "default"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "query FindIndustrySector($query: String!) {\n    findOccupations(query: $query) {\n            description\n            code\n            name\n\n    }\n  }",
+										"variables": "\n{\n  \"query\": \"{{occupationDescription}}\"\n}"
+									}
+								},
+								"url": {
+									"raw": "{{session_dialog_host}}",
+									"host": [
+										"{{session_dialog_host}}"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Industry Finder",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Industry Finder returns data\", function () {",
+											"    var jsonData = pm.response.json();",
+											"    //pm.expect(jsonData.data.updateApplicant.person).not.null;",
+											"    pm.expect(jsonData.data.findIndustrySectors[0]).not.null;",
+											"",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{auth.access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "x-api-key",
+										"value": "{{x-api-key}}",
+										"type": "default"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "query FindIndustrySector($query: String!) {\n    findIndustrySectors(query: $query) {\n            description\n            code\n            name\n\n    }\n  }",
+										"variables": "\n{\n  \"query\": \"{{categoryDescription}}\"\n}"
+									}
+								},
+								"url": {
+									"raw": "{{session_dialog_host}}",
+									"host": [
+										"{{session_dialog_host}}"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "UpdateEmpDetails",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Update Applicant Employment Details\", function () {",
+											"    var jsonData = pm.response.json();",
+											"    //pm.expect(jsonData.data.updateApplicant.person).not.null;",
+											"    pm.expect(jsonData.data.updateApplicant.occupationDescription).not.null;",
+											"    pm.expect(jsonData.data.updateApplicant.person.employmentInformation.period.startDate).not.null;",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{auth.access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "x-api-key",
+										"value": "{{x-api-key}}",
+										"type": "default"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "mutation UpdateApplicant($applicant: UpdateApplicantInput!) {\n  updateApplicant(updateApplicantInput: $applicant) {\n    person {\n      occupationDescription\n      employmentInformation {\n        statusDescription\n        employer {\n          name\n          typeDescription\n          economicActivity {\n            categoryDescription\n          }\n          controlStakeIndicator\n        }\n        period {\n          startDate\n        }\n      }\n    }\n  }\n}",
+										"variables": "\n{\n  \"applicant\": {\n    \"person\": {\n\n           \"occupationDescription\": \"{{occupationDescription}}\",\n            \"employmentInformation\": {\n                \"statusDescription\": \"{{statusDescription}}\",\n                \"employer\": {\n                    \"name\": \"{{employerName}}\",\n                    \"economicActivity\": {\n                        \"categoryDescription\": \"{{categoryDescription}}\"\n                    },\n                    \"controlStakeIndicator\": {{controlStakeIndicator}}\n                },\n                \"period\": {\n                    \"startDate\": \"{{startDate}}\"\n                }\n            }\n       }\n   }\n}"
+									}
+								},
+								"url": {
+									"raw": "{{session_dialog_host}}",
+									"host": [
+										"{{session_dialog_host}}"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "UpdateEmpEconomicData",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Update Applicants Economic Data\", function () {",
+											"    var jsonData = pm.response.json();",
+											"    pm.expect(jsonData.data.updateApplicant.person.economicData.incomes[0].typeDescription).not.null;",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{auth.access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "x-api-key",
+										"value": "{{x-api-key}}",
+										"type": "default"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "mutation UpdateApplicant($applicant: UpdateApplicantInput!) {\n  updateApplicant(updateApplicantInput: $applicant) {\n    person {\n      economicData {\n        incomes {\n          typeDescription\n          otherIncomeDescription\n          amount {\n            amount\n            currency\n          }\n          country {\n              code\n          }\n        }\n          totalExpenses {\n              amount {\n                    amount\n                    currency\n              }\n          }\n          numberOfDependents\n        }\n      }\n    }\n  }\n",
+										"variables": "{\n  \"applicant\": {\n    \"person\": {\n      \"economicData\": {\n        \"incomes\": [\n          {\n            \"typeDescription\": \"{{incomeTypeDescription}}\",\n            \"amount\": {\n              \"amount\": {{incomeAmount}}\n            },\n            \"country\": {\n              \"code\": \"{{incomeAmountCountryCode}}\"\n            }\n          }\n        ],\n\n        \"numberOfDependents\": {{numberOfDependents}}\n      }\n    }\n  }\n}\n"
+									}
+								},
+								"url": {
+									"raw": "{{session_dialog_host}}",
+									"host": [
+										"{{session_dialog_host}}"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Your Account",
+			"item": [
+				{
+					"name": "UpdateAccountUsage-ExpectedUsage",
+					"item": [
+						{
+							"name": "UpdateApplicationAccountPurpose",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Update Application Account Purpose\", function () {",
+											"    var jsonData = pm.response.json();",
+											"    pm.expect(jsonData.data.updateApplication).not.null;",
+											"    pm.expect(jsonData.data.updateApplication.account).not.null;",
+											"",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{auth.access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "x-api-key",
+										"value": "{{x-api-key}}",
+										"type": "default"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "mutation UpdateApplication($application: ApplicationInput) {\n  updateApplication(applicationInput: $application) {\n    account {\n      expectedUsage {\n        purposeCode\n        purposeDescription\n        monthlyPayIn\n        monthlyOutgoings\n        monthlyDeposit\n      }\n    }\n  }\n}",
+										"variables": "{\n  \"application\": {\n    \"account\": {\n      \"expectedUsage\": {\n        \"purposeCode\": \"{{purposeCode}}\",\n        \"monthlyPayIn\": {{monthlyPayIn}},\n        \"monthlyOutgoings\": {{monthlyOutgoings}}\n      }\n    }\n  }\n}\n"
+									}
+								},
+								"url": {
+									"raw": "{{session_dialog_host}}",
+									"host": [
+										"{{session_dialog_host}}"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "UpdateApplicationExpectedUsage",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Update Application Account expected usage\", function () {",
+											"    var jsonData = pm.response.json();",
+											"    pm.expect(jsonData.data.updateApplication).not.null;",
+											"    pm.expect(jsonData.data.updateApplication.account.expectedUsage.expectedInitialDeposits[0].amount).not.null;",
+											"",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{auth.access_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "x-api-key",
+										"value": "{{x-api-key}}",
+										"type": "default"
+									}
+								],
+								"body": {
+									"mode": "graphql",
+									"graphql": {
+										"query": "mutation UpdateApplication($application: ApplicationInput) {\n  updateApplication(applicationInput: $application) {\n    account {\n      expectedUsage {\n        expectedInitialDeposits {\n          amount {\n              amount\n          }\n          country {\n            code\n\n          }\n          source\n\n        }\n\n      }\n\n    }\n\n  }\n}",
+										"variables": "{\n  \"application\": {\n    \"account\": {\n      \"expectedUsage\": {\n        \"expectedInitialDeposits\": [\n            {\n            \"amount\":{\n            \"amount\": {{depositAmount}}\n            },\n            \"country\":{\n            \"code\" : \"{{depositAccountCountryCode}}\"\n          },\n            \"source\": \"{{sourceDeposit}}\"\n            }\n        ]\n      }\n    }\n  }\n}"
+									}
+								},
+								"url": {
+									"raw": "{{session_dialog_host}}",
+									"host": [
+										"{{session_dialog_host}}"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				}
+			]
+		}
+	]
+}
