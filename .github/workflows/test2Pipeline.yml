@@ -50,7 +50,7 @@ jobs:
       # Run Collection
       - name: Run Postman Collection
         run:  |
-          newman run sample1.postman_collection.json
+          newman run _SessionDialogOnboardingE2EPCA.postman_collection.json -e __onboarding_automation.postman_environment.json
       
       # Publish the Report
       - name: Publish Report
