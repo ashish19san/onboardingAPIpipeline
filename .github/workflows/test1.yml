@@ -43,7 +43,7 @@ jobs:
       # Run Collection
       - name: Run Collection
         run:  |
-          newman run "_SessionDialogOnboardingE2EPCA.postman_collection.json" -e "__onboarding_automation.postman_environment.json" -r htmlextra --reporter-htmlextra-export SampleArtifact/report.html
+          newman run "SessionDialogOnboardingE2EPCA.postman_collection.json" -e "onboarding_automation.postman_environment.json" -r htmlextra --reporter-htmlextra-export SampleArtifact/report.html
       
       # Publish the Report
       - name: Publish Report
